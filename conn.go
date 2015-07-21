@@ -29,6 +29,7 @@ type Conn struct {
 
 // ConnCallback is an interface of methods that are used as callbacks on a connection
 type ConnCallback interface {
+	OnDial() (*net.TCPConn, error)
 	// OnConnect is called when the connection was accepted,
 	// If the return value of false is closed
 	OnConnect(*Conn) bool

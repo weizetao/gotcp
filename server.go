@@ -56,6 +56,35 @@ func (s *Server) Start(listener *net.TCPListener, acceptTimeout time.Duration) {
 		go newConn(conn, s).Do()
 	}
 }
+func (s *Server) StartConnector(reConnect time.Duration) {
+	s.waitGroup.Add(1)
+	defer func() {
+		s.waitGroup.Done()
+	}()
+
+	for {
+		conn, err := s.callback.OnDial()
+		if err != nil {
+			select {
+			case <-s.exitChan:
+				return
+			case <-time.After(time.Second * 1):
+				continue
+			}
+		}
+
+		c := newConn(conn, s)
+		go c.Do()
+
+		select {
+		case <-s.exitChan:
+			return
+		case <-c.closeChan:
+			time.Sleep(time.Second * reConnect)
+		}
+	}
+
+}
 
 // Stop stops service
 func (s *Server) Stop() {
