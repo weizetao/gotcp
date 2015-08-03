@@ -9,6 +9,7 @@ import (
 type Config struct {
 	PacketSendChanLimit    uint32 // the limit of packet send channel
 	PacketReceiveChanLimit uint32 // the limit of packet receive channel
+	WorkerNum              uint32
 }
 
 type Server struct {
@@ -53,7 +54,12 @@ func (s *Server) Start(listener *net.TCPListener, acceptTimeout time.Duration) {
 			continue
 		}
 
-		go newConn(conn, s).Do()
+		if s.config.WorkerNum == 0 {
+			go newConn(conn, s).Do()
+		} else {
+			go newConn(conn, s).DoPool(s.config.WorkerNum)
+		}
+
 	}
 }
 func (s *Server) StartConnector(reConnect time.Duration) {
@@ -68,13 +74,18 @@ func (s *Server) StartConnector(reConnect time.Duration) {
 			select {
 			case <-s.exitChan:
 				return
-			case <-time.After(time.Second * 1):
+			case <-time.After(time.Second * reConnect):
 				continue
 			}
 		}
 
 		c := newConn(conn, s)
 		go c.Do()
+		if s.config.WorkerNum == 0 {
+			go c.Do()
+		} else {
+			go c.DoPool(s.config.WorkerNum)
+		}
 
 		select {
 		case <-s.exitChan:

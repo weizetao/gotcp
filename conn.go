@@ -152,6 +152,18 @@ func (c *Conn) Do() {
 	go c.writeLoop()
 }
 
+func (c *Conn) DoPool(num uint32) {
+	if !c.srv.callback.OnConnect(c) {
+		return
+	}
+	var i uint32
+	for i = 0; i < num; i++ {
+		go c.handleLoop()
+	}
+	go c.readLoop()
+	go c.writeLoop()
+}
+
 func (c *Conn) readLoop() {
 	c.srv.waitGroup.Add(1)
 	defer func() {
@@ -224,6 +236,7 @@ func (c *Conn) handleLoop() {
 			if !c.srv.callback.OnMessage(c, p) {
 				return
 			}
+			// go c.srv.callback.OnMessage(c, p)
 		}
 	}
 }
