@@ -1,6 +1,7 @@
 package gotcp
 
 import (
+	"bufio"
 	"errors"
 	"net"
 	"sync"
@@ -15,10 +16,17 @@ var (
 	ErrReadBlocking  = errors.New("read packet was blocking")
 )
 
+const (
+	DefaultReaderSize = 4096
+	DefaultWiterSize  = 4096
+)
+
 // Conn exposes a set of callbacks for the various events that occur on a connection
 type Conn struct {
 	srv               *Server
-	conn              *net.TCPConn  // the raw connection
+	conn              *net.TCPConn // the raw connection
+	r                 *bufio.Reader
+	w                 *bufio.Writer
 	extraData         interface{}   // to save extra data
 	closeOnce         sync.Once     // close the conn, once, per instance
 	closeFlag         int32         // close flag
@@ -47,6 +55,8 @@ func newConn(conn *net.TCPConn, srv *Server) *Conn {
 	return &Conn{
 		srv:               srv,
 		conn:              conn,
+		r:                 bufio.NewReaderSize(conn, DefaultReaderSize),
+		w:                 bufio.NewWriterSize(conn, DefaultWiterSize),
 		closeChan:         make(chan struct{}),
 		packetSendChan:    make(chan Packet, srv.config.PacketSendChanLimit),
 		packetReceiveChan: make(chan Packet, srv.config.PacketReceiveChanLimit),
@@ -152,6 +162,11 @@ func (c *Conn) Do() {
 	go c.writeLoop()
 }
 
+//write without bufio
+func (c *Conn) Write(p []byte) (int, error) {
+	return c.w.Write(p)
+}
+
 func (c *Conn) DoPool(num uint32) {
 	if !c.srv.callback.OnConnect(c) {
 		return
@@ -183,7 +198,7 @@ func (c *Conn) readLoop() {
 		default:
 		}
 
-		p, err := c.srv.protocol.ReadPacket(c.conn)
+		p, err := c.srv.protocol.ReadPacket(c.r)
 		if err != nil {
 			return
 		}
@@ -209,8 +224,11 @@ func (c *Conn) writeLoop() {
 			return
 
 		case p := <-c.packetSendChan:
-			if _, err := c.conn.Write(p.Serialize()); err != nil {
+			if err := c.srv.protocol.WritePacket(c.w, p); err != nil {
 				return
+			}
+			if len(c.packetSendChan) == 0 {
+				c.w.Flush()
 			}
 		}
 	}
@@ -234,7 +252,7 @@ func (c *Conn) handleLoop() {
 
 		case p := <-c.packetReceiveChan:
 			if !c.srv.callback.OnMessage(c, p) {
-				return
+				// return
 			}
 			// go c.srv.callback.OnMessage(c, p)
 		}

@@ -1,7 +1,7 @@
 package gotcp
 
 import (
-	"net"
+	"bufio"
 )
 
 type Packet interface {
@@ -9,5 +9,6 @@ type Packet interface {
 }
 
 type Protocol interface {
-	ReadPacket(conn *net.TCPConn) (Packet, error)
+	ReadPacket(r *bufio.Reader) (Packet, error)
+	WritePacket(w *bufio.Writer, p Packet) error
 }

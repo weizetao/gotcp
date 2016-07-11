@@ -10,8 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gansidui/gotcp"
-	"github.com/gansidui/gotcp/examples/echo"
+	"github.com/weizetao/gotcp"
+	"github.com/weizetao/gotcp/examples/redsync"
 )
 
 type Callback struct{}
@@ -22,11 +22,18 @@ func (this *Callback) OnConnect(c *gotcp.Conn) bool {
 	fmt.Println("OnConnect:", addr)
 	return true
 }
+func (this *Callback) OnDial() (*net.TCPConn, error) {
+	return nil, nil
+}
 
 func (this *Callback) OnMessage(c *gotcp.Conn, p gotcp.Packet) bool {
-	echoPacket := p.(*echo.EchoPacket)
-	fmt.Printf("OnMessage:[%v] [%v]\n", echoPacket.GetLength(), string(echoPacket.GetBody()))
-	c.AsyncWritePacket(echo.NewEchoPacket(echoPacket.Serialize(), true), time.Second)
+	redsyncPacket := p.(*redsync.RedPacket)
+	fmt.Printf("OnMessage:[%s]\n", redsyncPacket.Cmd())
+
+	redPk := &redsync.RedPacket{}
+	redPk.SetCmd("hello", "redsync", "wrold")
+
+	c.AsyncWritePacket(redPk, time.Second)
 	return true
 }
 
@@ -35,7 +42,7 @@ func (this *Callback) OnClose(c *gotcp.Conn) {
 }
 
 func main() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
+	runtime.GOMAXPROCS(1)
 
 	// creates a tcp listener
 	tcpAddr, err := net.ResolveTCPAddr("tcp4", ":8989")
@@ -48,7 +55,7 @@ func main() {
 		PacketSendChanLimit:    20,
 		PacketReceiveChanLimit: 20,
 	}
-	srv := gotcp.NewServer(config, &Callback{}, &echo.EchoProtocol{})
+	srv := gotcp.NewServer(config, &Callback{}, &redsync.RedProtocol{})
 
 	// starts service
 	go srv.Start(listener, time.Second)

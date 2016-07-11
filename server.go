@@ -80,7 +80,6 @@ func (s *Server) StartConnector(reConnect time.Duration) {
 		}
 
 		c := newConn(conn, s)
-		go c.Do()
 		if s.config.WorkerNum == 0 {
 			go c.Do()
 		} else {
