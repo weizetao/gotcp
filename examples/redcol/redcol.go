@@ -1,9 +1,10 @@
-package redsync
+package redcol
 
 import (
 	"bufio"
 	"fmt"
 	"github.com/weizetao/gotcp"
+	"io"
 )
 
 type RedPacket struct {
@@ -40,10 +41,7 @@ func (this *RedPacket) AppendKeys(keys ...interface{}) error {
 	return nil
 }
 
-type RedProtocol struct {
-}
-
-func (this *RedProtocol) ReadPacket(r *bufio.Reader) (gotcp.Packet, error) {
+func SyncReadPacket(r *bufio.Reader) (*RedPacket, error) {
 	p := &RedPacket{}
 
 	resp, err := Parse(r)
@@ -62,9 +60,18 @@ func (this *RedProtocol) ReadPacket(r *bufio.Reader) (gotcp.Packet, error) {
 
 	return p, nil
 }
+func SyncWritePacket(w io.Writer, p *RedPacket) error {
+	return WriteCmdKeys(w, p.cmd, p.keys)
+}
+
+type RedProtocol struct {
+}
+
+func (this *RedProtocol) ReadPacket(r *bufio.Reader) (gotcp.Packet, error) {
+	return SyncReadPacket(r)
+}
 
 func (this *RedProtocol) WritePacket(w *bufio.Writer, p gotcp.Packet) error {
 	redsyncPk := p.(*RedPacket)
-	// return redsyncPk.resp.WriteTo(w)
-	return WriteCmdKeys(w, redsyncPk.cmd, redsyncPk.keys)
+	return SyncWritePacket(w, redsyncPk)
 }

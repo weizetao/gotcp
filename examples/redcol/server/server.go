@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/weizetao/gotcp"
-	"github.com/weizetao/gotcp/examples/redsync"
+	"github.com/weizetao/gotcp/examples/redcol"
 )
 
 type Callback struct{}
@@ -27,11 +27,11 @@ func (this *Callback) OnDial() (*net.TCPConn, error) {
 }
 
 func (this *Callback) OnMessage(c *gotcp.Conn, p gotcp.Packet) bool {
-	redsyncPacket := p.(*redsync.RedPacket)
-	fmt.Printf("OnMessage:[%s]\n", redsyncPacket.Cmd())
+	redcolPacket := p.(*redcol.RedPacket)
+	fmt.Printf("OnMessage:[%s]\n", redcolPacket.Cmd())
 
-	redPk := &redsync.RedPacket{}
-	redPk.SetCmd("hello", "redsync", "wrold")
+	redPk := &redcol.RedPacket{}
+	redPk.SetCmd("hello", "redcol", "wrold")
 
 	c.AsyncWritePacket(redPk, time.Second)
 	return true
@@ -55,7 +55,7 @@ func main() {
 		PacketSendChanLimit:    20,
 		PacketReceiveChanLimit: 20,
 	}
-	srv := gotcp.NewServer(config, &Callback{}, &redsync.RedProtocol{})
+	srv := gotcp.NewServer(config, &Callback{}, &redcol.RedProtocol{})
 
 	// starts service
 	go srv.Start(listener, time.Second)
